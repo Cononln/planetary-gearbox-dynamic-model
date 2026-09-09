@@ -12,9 +12,12 @@ p.gear.zp = 31;
 p.gear.zr = 84;
 p.gear.module = 1.5e-3;
 p.gear.alpha_nominal = deg2rad(20);
-p.gear.faceWidthSunPlanet = 22e-3;
-p.gear.faceWidthRing = 42e-3;
-p.gear.carrierRadius = 39.750056e-3;
+% User-confirmed effective face widths for both mesh pairs.
+p.gear.faceWidthSunPlanet = 21.5e-3;
+p.gear.faceWidthRing = 21.5e-3;
+% User-selected nominal working centre for the current model.  It is a
+% modelling convention pending direct assembly measurement, not a CAD fact.
+p.gear.carrierRadius = 39.75e-3;
 
 p.gear.pitchRadiusSun = p.gear.module*p.gear.zs/2;
 p.gear.pitchRadiusPlanet = p.gear.module*p.gear.zp/2;
@@ -22,20 +25,27 @@ p.gear.pitchRadiusRing = p.gear.module*p.gear.zr/2;
 p.gear.baseRadiusSun = p.gear.pitchRadiusSun*cos(p.gear.alpha_nominal);
 p.gear.baseRadiusPlanet = p.gear.pitchRadiusPlanet*cos(p.gear.alpha_nominal);
 p.gear.baseRadiusRing = p.gear.pitchRadiusRing*cos(p.gear.alpha_nominal);
-% Confirmed outside/root diameters from the physical sun and planet gears.
-% These are required by the tooth-root crack energy model; they are kept
-% separate from the pitch/base geometry so that no standard-tooth
-% assumption silently replaces the measured dimensions.
+% User-confirmed physical outside/root dimensions of the external gears;
+% reported inner tooth-tip/root radii of the fixed ring.  They are kept
+% separate from pitch/base geometry: dimensions alone do not identify the
+% manufacturing profile shifts, tooth thickness, or root fillet.
 p.gear.addendumRadiusSun = 34.50e-3/2;
 p.gear.rootRadiusSun = 27.75e-3/2;
 p.gear.addendumRadiusPlanet = 49.50e-3/2;
 p.gear.rootRadiusPlanet = 42.75e-3/2;
+p.gear.addendumRadiusRing = 61.50e-3; % internal tooth-tip radius
+% Ring dimensions extracted from the supplied CAD geometry (2026-09-08).
+p.gear.rootRadiusRing = 64.875e-3;   % internal tooth-root radius
+p.gear.outerRadiusRing = 81.000e-3; % housing-integral outer rim radius
+p.gear.ringHoleRadius = 72.500e-3;  % eight through-hole pitch radius
+p.gear.ringHoleDiameter = 6.8e-3;
+p.gear.ringHoleCount = 8;
 
-% Steel properties used only for relative tooth-compliance calculations.
-% The resulting crack/healthy stiffness ratio scales the calibrated mean
-% mesh stiffness, so the absolute modulus does not overwrite that baseline.
-p.material.gear.E = 207e9;
-p.material.gear.nu = 0.29;
+% User-specified generic structural steel.  These are engineering defaults,
+% not a material-certificate identification of the physical gears.
+p.material.gear.E = 200e9;
+p.material.gear.nu = 0.30;
+p.material.gear.rho = 7850;
 p.material.gear.G = p.material.gear.E/(2*(1+p.material.gear.nu));
 
 a0sp = p.gear.pitchRadiusSun + p.gear.pitchRadiusPlanet;

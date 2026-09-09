@@ -1,0 +1,16 @@
+{
+  "damage_model": "straight_root_crack_energy",
+  "q_definition": "straight_root_crack_extension_mm",
+  "crack_depth_mm_values": [0.45, 0.9, 1.35],
+  "crack_angle_deg": 45.0,
+  "min_ligament_fraction": 0.05,
+  "fault_tooth": 1,
+  "target_planet": 1,
+  "samples_per_mesh_cycle": 2000,
+  "sun_recurrence_mesh_cycles": 21,
+  "planet_recurrence_mesh_cycles": 31,
+  "planet_ring_tooth_offset": 15,
+  "damaged_components": ["bending", "shear"],
+  "healthy_components_held_fixed": ["axial_compression", "tooth_foundation", "mating_tooth", "hertz_contact", "ring_foundation_fem"],
+  "notes": "Straight root-crack model following Peng Yue (2025): crack extension q_c starts at the tooth root and forms gamma=45 degrees with the tooth centreline. The reference case q_c=3 mm at m=5 mm has q_c/m=0.60; the middle current-gear case is module-scaled to q_c=0.90 mm at m=1.5 mm. These are simulation cases, not measured crack sizes of the present test gear."
+}
