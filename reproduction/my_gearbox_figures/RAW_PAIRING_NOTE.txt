@@ -1,0 +1,14 @@
+Raw response pairing update (2026-09-19)
+
+The previous *_fault_component figures used (fault - healthy) residuals.
+That makes the healthy layer identically zero by definition and exaggerates
+the visual difference between healthy and severe crack cases.
+
+The *_raw_paired figures now use the original mean-removed DTE response from
+each time_*.csv with one common Z scale. No model parameter, TVMS value,
+crack depth, or signal sample was changed.
+
+The existing spec_*.csv files are the direct one-sided FFT of these raw
+responses. The spectrum figures were re-exported from those unchanged files,
+so their numerical amplitudes are unchanged and are paired with the raw time
+figures.

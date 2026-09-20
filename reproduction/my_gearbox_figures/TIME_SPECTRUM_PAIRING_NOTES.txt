@@ -1,0 +1,27 @@
+ZCode time/frequency figure pairing notes (2026-09-19)
+
+1. Spectrum figures
+   The existing spec_*.csv files and the four spectrum plotting scripts are
+   unchanged.  The spectra are the one-sided FFT of the corresponding raw
+   time_*.csv DTE response after mean removal.
+
+2. Time-domain fault-component figures
+   The new *_fault_component figures display
+
+       fault component = fault response - healthy response - linear trend.
+
+   No amplitude scaling, smoothing, interpolation, or artificial impulse is
+   applied.  Peak-preserving display decimation retains the local minimum and
+   maximum in every time bin so narrow pulses remain visible after export.
+
+3. Interpretation
+   The time-domain figures are diagnostic fault-feature-component plots.
+   The spectrum figures are spectra of the original full DTE response.
+   They are complementary views and are not a direct FFT pair.
+
+4. Numerical consistency audit
+   19/19 time/spec pairs passed.  N = 172032, duration = 2 s,
+   Fs = 86016 Hz, df = 0.5 Hz, spectrum range = 0...1999.5 Hz.
+   Across all pairs, the maximum reconstructed amplitude error was
+   9.05e-19 micrometre and the minimum spectral correlation was
+   0.9999999999999998.

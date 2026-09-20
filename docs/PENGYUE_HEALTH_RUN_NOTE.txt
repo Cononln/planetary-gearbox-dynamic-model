@@ -1,0 +1,20 @@
+Peng Yue TVMS validation / dynamics handoff
+
+Validated health TVMS source:
+  src/pg_build_pengyue_sp_tvms_model.m
+  src/pg_build_pengyue_pr_tvms_model.m
+  src/pg_eval_pengyue_sp_tvms.m
+  src/pg_eval_pengyue_pr_tvms.m
+
+Run from the formal project root after closing any existing MATLAB desktop
+session (the current MATLAB installation refuses a second ApplicationService):
+
+  setup_paths
+  report = validate_pengyue_full_tvms
+  result = run_pengyue_tvms_dynamics('Case','healthy', ...
+      'OutputDir','results/pengyue_tvms_dynamics_healthy_physical')
+
+The dynamics runner now reports 1fm through 9fm and stores both SP and PR
+TVMS traces. The PR ring foundation term is provisional because rim/body and
+root-fillet geometry are missing; do not present its absolute level as a
+final calibrated value.

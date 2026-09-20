@@ -20,6 +20,35 @@ detail.faultPairCountRingPlanet = zeros(nTime,nPlanet);
 detail.faultStiffnessLossSunPlanet = zeros(nTime,nPlanet);
 detail.faultStiffnessLossRingPlanet = zeros(nTime,nPlanet);
 
+usePengyue = isfield(p,'mesh') && isfield(p.mesh,'tvmsSource') && ...
+    strcmpi(p.mesh.tvmsSource,'pengyue');
+if usePengyue
+    if ~isfield(p.mesh,'pengyueSpModel')
+        error('pg_tvms:MissingPengyueModel', ...
+            ['p.mesh.pengyueSpModel is missing. Build it once with ' ...
+             'pg_prepare_pengyue_tvms before integration.']);
+    end
+    if ~isfield(p.mesh,'pengyuePrModel')
+        error('pg_tvms:MissingPengyuePrModel', ...
+            ['p.mesh.pengyuePrModel is missing. Rebuild both SP and PR ' ...
+             'lookups with pg_prepare_pengyue_tvms before integration.']);
+    end
+    [kSpPeng,detailSpPeng] = pg_eval_pengyue_sp_tvms( ...
+        t,p,fault,p.mesh.pengyueSpModel);
+    [kRpPeng,detailRpPeng] = pg_eval_pengyue_pr_tvms( ...
+        t,p,fault,p.mesh.pengyuePrModel);
+    stiffness.sunPlanet = kSpPeng;
+    stiffness.ringPlanet = kRpPeng;
+    detail.faultPairCountSunPlanet = detailSpPeng.faultPairCount;
+    detail.faultStiffnessLossSunPlanet = detailSpPeng.faultStiffnessLoss;
+    detail.activePairCountSunPlanet = detailSpPeng.activePairCount;
+    detail.faultPairCountRingPlanet = detailRpPeng.faultPairCount;
+    detail.faultStiffnessLossRingPlanet = detailRpPeng.faultStiffnessLoss;
+    detail.activePairCountRingPlanet = detailRpPeng.activePairCount;
+    detail.localMeshCounterSunPlanet = detailSpPeng.localMeshCounter;
+    detail.localMeshCounterRingPlanet = detailRpPeng.localMeshCounter;
+end
+
 motion = pg_motion_state(t,p);
 meshCounter = motion.meshCounter(:);
 if isfield(fault,'speedRippleFraction') && fault.speedRippleFraction > 0
@@ -34,21 +63,31 @@ end
 for it = 1:nTime
     u = meshCounter(it);
     for ip = 1:nPlanet
-        sunOffset = (ip-1)*(p.gear.zs/nPlanet);
-        [ksp,nFaultSp,lossSp] = oneMesh(u, ...
-            p.tvms.sunPlanet.contactRatio,p.mesh.sunPlanet.kMean, ...
-            p.gear.zs,p.gear.zp,sunOffset,0,ip,'sunPlanet',p,fault);
-        ringOffset = (ip-1)*(p.gear.zr/nPlanet);
-        [krp,nFaultRp,lossRp] = oneMesh(u, ...
-            p.tvms.ringPlanet.contactRatio,p.mesh.ringPlanet.kMean, ...
-            p.gear.zr,p.gear.zp,ringOffset, ...
-            p.tvms.planetRingToothOffset,ip,'ringPlanet',p,fault);
-        stiffness.sunPlanet(it,ip) = ksp;
-        stiffness.ringPlanet(it,ip) = krp;
-        detail.faultPairCountSunPlanet(it,ip) = nFaultSp;
-        detail.faultPairCountRingPlanet(it,ip) = nFaultRp;
-        detail.faultStiffnessLossSunPlanet(it,ip) = lossSp;
-        detail.faultStiffnessLossRingPlanet(it,ip) = lossRp;
+        if usePengyue
+            % Sun-planet stiffness was evaluated by the precomputed
+            % potential-energy TVMS above; do not apply the legacy profile.
+            ksp = stiffness.sunPlanet(it,ip);
+            nFaultSp = detail.faultPairCountSunPlanet(it,ip);
+            lossSp = detail.faultStiffnessLossSunPlanet(it,ip);
+        else
+            sunOffset = (ip-1)*(p.gear.zs/nPlanet);
+            [ksp,nFaultSp,lossSp] = oneMesh(u, ...
+                p.tvms.sunPlanet.contactRatio,p.mesh.sunPlanet.kMean, ...
+                p.gear.zs,p.gear.zp,sunOffset,0,ip,'sunPlanet',p,fault);
+            stiffness.sunPlanet(it,ip) = ksp;
+            detail.faultPairCountSunPlanet(it,ip) = nFaultSp;
+            detail.faultStiffnessLossSunPlanet(it,ip) = lossSp;
+        end
+        if ~usePengyue
+            ringOffset = (ip-1)*(p.gear.zr/nPlanet);
+            [krp,nFaultRp,lossRp] = oneMesh(u, ...
+                p.tvms.ringPlanet.contactRatio,p.mesh.ringPlanet.kMean, ...
+                p.gear.zr,p.gear.zp,ringOffset, ...
+                p.tvms.planetRingToothOffset,ip,'ringPlanet',p,fault);
+            stiffness.ringPlanet(it,ip) = krp;
+            detail.faultPairCountRingPlanet(it,ip) = nFaultRp;
+            detail.faultStiffnessLossRingPlanet(it,ip) = lossRp;
+        end
     end
 end
 
@@ -63,6 +102,16 @@ if isscalar(tShape) || prod(tShape)==1
         reshape(detail.faultStiffnessLossSunPlanet,1,nPlanet);
     detail.faultStiffnessLossRingPlanet = ...
         reshape(detail.faultStiffnessLossRingPlanet,1,nPlanet);
+    if isfield(detail,'activePairCountSunPlanet')
+        detail.activePairCountSunPlanet = ...
+            reshape(detail.activePairCountSunPlanet,1,nPlanet);
+        detail.activePairCountRingPlanet = ...
+            reshape(detail.activePairCountRingPlanet,1,nPlanet);
+        detail.localMeshCounterSunPlanet = ...
+            reshape(detail.localMeshCounterSunPlanet,1,nPlanet);
+        detail.localMeshCounterRingPlanet = ...
+            reshape(detail.localMeshCounterRingPlanet,1,nPlanet);
+    end
 end
 end
 

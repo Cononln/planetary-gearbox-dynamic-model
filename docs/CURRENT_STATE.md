@@ -80,3 +80,45 @@
 
 上传和环境自检不触发完整研究实验。其他 AI 开始任务时，应先由用户指定此次
 要处理的具体问题。
+
+## 4. 彭悦 17/37/91 TVMS 复现路线（2026-09-18）
+
+该路线与当前 21/31/84 实验配置隔离，入口为
+`src/pg_parameters_pengyue_fig314.m`、`src/pg_prepare_pengyue_tvms.m`、
+`src/pg_build_pengyue_sp_tvms_model.m` 和
+`src/pg_build_pengyue_pr_tvms_model.m`。太阳轮—行星轮和行星轮—齿圈
+均采用势能法单齿对刚度并联；接触比和 active-pair 判定保持为
+`epsilon_SP=1.606132713`、`epsilon_PR=1.941804661`；q=3 mm、45° 是当前
+图 3-2 对照工况。
+
+Chaari/Sainsot 齿基柔度已实现为可审计的 `FoundationModel="chaari"` 分支，
+但彭悦表 2-1 没有给出太阳轮/行星轮的 `r_int` 和 `theta_f`，因此该分支在
+缺失几何时明确报错，不从齿数和模数推断。`FoundationModel="constant"` 的
+`7e-9 m/N` 已被正式路线禁止，仅可在历史诊断记录中追溯，不能作为正式模型。
+
+PR 内啮合已不再调用 `profileFloor/profileSin2/sin^2` 代理；齿圈轮齿采用彭悦
+式(2-25)～(2-27)的弯曲、压缩和剪切积分。齿圈轮缘/轮体和齿根圆角资料尚缺，
+因此 PR foundation 柔度当前明确设为零并标记 `MISSING`，PR 绝对刚度仍是
+provisional，不可直接宣称完成论文图3-2的量级复现。
+
+三行星 Parker 相位已分别实现：SP mesh-phase cycles=`[0,2/3,1/3]`，
+PR mesh-phase cycles=`[0,1/3,2/3]`。健康 TVMS 验证输出位于
+`results/pengyue_full_tvms_validation/`，18 DOF、相位回归和单双齿比例均通过。
+
+q=3 mm 诊断结果保存在
+`results/pengyue_foundation_diagnostic_q3/`；CSV/TXT 中记录了接触比、单双齿
+比例和公式来源。正式健康 TVMS 验证的当前 P1 范围为 SP
+`6.027e8–9.980e8 N/m`、PR `1.711e9–4.715e9 N/m`；后者受缺失齿圈轮体
+几何影响，需补充 CAD/轮缘参数后再进行绝对量级和动力学频谱复现。
+
+## 5. 用户参数第3章对照复现代码（2026-09-19）
+
+`reproduction/pengyue_chapter3_reproduction/` 保存独立的 Python 势能法
+TVMS 与18DOF动力学对照实现；`reproduction/my_gearbox_figures/` 保存对应
+MATLAB论文出图脚本。当前用户参数为 21/31/84 齿、600 r/min，数据生成
+入口为 `validation/run_user_gearbox_B.py`。该入口输出原始 DTE 时域与其
+直接单边FFT；频谱未通过绘图脚本添加谱线。
+
+时域论文图应区分原始系统响应和相对健康的故障残差。当前正式配对版使用
+原始去均值响应，健康与各裂纹工况共用同一幅值尺度；故障残差图仅作为诊断，
+不能宣称与原始响应频谱互为直接FFT。生成数据和图片均不纳入Git版本。

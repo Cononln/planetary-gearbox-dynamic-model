@@ -7,6 +7,14 @@
 /data/*
 !/data/ring_modes_30.csv
 /data_local/
+/reproduction/my_gearbox_figures/data/
+/reproduction/my_gearbox_figures/export_*/
+/reproduction/my_gearbox_figures/fig_matlab/
+/reproduction/my_gearbox_figures/logs/
+/reproduction/my_gearbox_figures/manifest/
+/reproduction/my_gearbox_figures/backup_*/
+/reproduction/pengyue_chapter3_reproduction/results/
+/reproduction/pengyue_chapter3_reproduction/figures/
 *.mat
 *.MAT
 *.tdms

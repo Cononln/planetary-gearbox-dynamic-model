@@ -253,3 +253,23 @@ together for phase-synchronous TPSVD.  In the current BL/PF50 comparison the
 common-only fault contrast decreases, while the differential residual fault
 family increases by 2.78 dB; this is the present evidence for the
 common/differential interface rather than direct equal-weight averaging.
+
+## 彭悦（2025）图 3-14 专项复现入口
+
+为避免污染当前 21/31/84 三通道研究模型，新增了独立的彭悦论文图 3-14 复现配置：
+
+```matlab
+setup_paths
+report = validate_pengyue_fig3_14
+output = reproduce_pengyue_fig3_14
+```
+
+该入口使用论文的 17/37/91 齿数、800 r/min、50 N·m、20 μm 传递误差、
+q=4 mm 和 γ=15/30/45/60/75°，并输出太阳轮—行星轮 DTE 的五层三维频谱。
+论文未报告的齿宽、位移无量纲标尺、绝对 TVMS 等不会被伪装成已知值；当前显式
+假设和第一版尚未加入的 backlash/逐齿摩擦项见
+[专项复现说明](docs/pengyue_fig3_14_reproduction.md)。
+
+当前用于用户 21/31/84 齿轮参数的 Python 18DOF 对照复现和 MATLAB 论文
+绘图源码位于 [reproduction](reproduction/README.md)。该目录只跟踪模型、
+验证和绘图代码；生成的 CSV、PNG、FIG、PDF 等结果由 `.gitignore` 排除。
