@@ -1,0 +1,130 @@
+"""Build the exact four-sensor FE asset from one ANSYS modal CSV set."""
+
+from pathlib import Path
+import argparse
+import json
+import math
+import sys
+
+import numpy as np
+from scipy.io import savemat
+
+
+ANGLES = (0, 90, 120, 240)
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src_py"))
+
+from fe_ring_asset_io import (  # noqa: E402
+    frequencies, modal_blocks, sensor_modes, validate_export_qa,
+)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Build a four-sensor ANSYS ring modal transfer asset."
+    )
+    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--ring-nodes", type=int, default=21165)
+    parser.add_argument("--sensor-nodes", type=int, default=9)
+    parser.add_argument("--pitch-radius-m", type=float, default=0.063)
+    parser.add_argument("--pressure-angle-deg", type=float, default=20.0)
+    args = parser.parse_args()
+    if args.ring_nodes <= 0 or args.sensor_nodes <= 0:
+        parser.error("--ring-nodes and --sensor-nodes must be positive")
+    if args.pitch_radius_m <= 0:
+        parser.error("--pitch-radius-m must be positive")
+    source = args.source.resolve()
+    output = args.output.resolve()
+    freq = frequencies(source / "modal_summary.csv")
+    export_qa = validate_export_qa(
+        source,
+        expected_mode_count=freq.size,
+        expected_sensor_nodes=args.sensor_nodes,
+    )
+    ring_xyz, ring_u = modal_blocks(
+        source / "mode_shapes_ring_teeth.csv", args.ring_nodes, freq.size
+    )
+    sensor_ids = tuple(f"SENSOR_{angle}" for angle in ANGLES)
+    sensor_xyz_by_id, sensor_u_by_id = sensor_modes(
+        source / "mode_shapes_sensor.csv", freq.size, args.sensor_nodes, sensor_ids
+    )
+    sensor_xyz = {angle: sensor_xyz_by_id[f"SENSOR_{angle}"] for angle in ANGLES}
+    sensor_u = {angle: sensor_u_by_id[f"SENSOR_{angle}"] for angle in ANGLES}
+
+    radius = np.hypot(ring_xyz[:, 0], ring_xyz[:, 1])
+    mid_z = 0.5 * (ring_xyz[:, 2].min() + ring_xyz[:, 2].max())
+    mid = np.isclose(ring_xyz[:, 2], mid_z, rtol=0, atol=1e-8)
+    radii = np.unique(np.round(radius[mid], 9))
+    contact_radius = radii[np.argmin(np.abs(radii - args.pitch_radius_m))]
+    contact = mid & np.isclose(radius, contact_radius, rtol=0, atol=5e-9)
+    if np.count_nonzero(contact) < 84:
+        raise ValueError("The expected mid-face contact ring was not found")
+    xyz = ring_xyz[contact]
+    modal_u = ring_u[:, contact, :]
+    theta = np.mod(np.arctan2(xyz[:, 1], xyz[:, 0]), 2 * np.pi)
+    order = np.argsort(theta)
+    theta, xyz, modal_u = theta[order], xyz[order], modal_u[:, order, :]
+    er = np.column_stack((np.cos(theta), np.sin(theta)))
+    et = np.column_stack((-np.sin(theta), np.cos(theta)))
+    alpha = math.radians(args.pressure_angle_deg)
+    normal_rp = -math.sin(alpha) * er + math.cos(alpha) * et
+    input_shape = np.einsum("mni,ni->nm", modal_u[:, :, :2], normal_rp)
+
+    sensor_shape = np.empty((len(ANGLES), freq.size))
+    centres = np.empty((len(ANGLES), 3))
+    global_deg = np.empty(len(ANGLES))
+    for i, angle in enumerate(ANGLES):
+        centre = sensor_xyz[angle].mean(axis=0)
+        phi = math.atan2(centre[1], centre[0])
+        radial = np.array([math.cos(phi), math.sin(phi), 0.0])
+        centres[i] = centre
+        global_deg[i] = math.degrees(phi) % 360
+        sensor_shape[i] = np.einsum("mni,i->m", sensor_u[angle], radial) / args.sensor_nodes
+
+    # APDL labels advance clockwise, while global atan2 angles advance
+    # counter-clockwise. Keep both conventions and reject wrong patch picks.
+    expected_global = (global_deg[0] - np.asarray(ANGLES, dtype=float)) % 360
+    angular_error = (global_deg - expected_global + 180) % 360 - 180
+    if np.max(np.abs(angular_error)) > 2.0:
+        raise ValueError("Sensor patch centres do not match the declared local angles")
+
+    output.mkdir(parents=True, exist_ok=True)
+    asset_path = output / "ansys_ring_modal_transfer_asset_exact_four_sensor.mat"
+    savemat(asset_path, {
+        "frequency_Hz": freq.reshape(1, -1),
+        "contact_angle_rad": theta.reshape(-1, 1),
+        "contact_xyz_m": xyz,
+        "input_shape_normal": input_shape,
+        "sensor_angle_local_deg": np.asarray(ANGLES, dtype=float).reshape(1, -1),
+        "sensor_angle_global_deg": global_deg.reshape(1, -1),
+        "sensor_shape_radial": sensor_shape,
+        "sensor_centre_xyz_m": centres,
+        "mass_normalized": np.array([[1]], dtype=np.uint8),
+        "mass_normalization_si_verified": np.array([[0]], dtype=np.uint8),
+        "sensor_mode_shapes_exact": np.array([[1]], dtype=np.uint8),
+        "contact_radius_m": np.array([[contact_radius]]),
+        "midface_z_m": np.array([[mid_z]]),
+    }, do_compression=True)
+    report = {
+        "source": str(source),
+        "mode_count": int(freq.size),
+        "nodes_per_sensor": args.sensor_nodes,
+        "sensor_local_deg": list(ANGLES),
+        "sensor_global_deg": global_deg.tolist(),
+        "sensor_centres_m": centres.tolist(),
+        "max_local_to_global_angle_error_deg": float(np.max(np.abs(angular_error))),
+        "amplitude_scaling": False,
+        "mass_normalization_si_verified": False,
+        "apdl_export_qa": export_qa,
+    }
+    (output / "exact_four_sensor_asset_report.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    print(asset_path)
+
+
+if __name__ == "__main__":
+    main()

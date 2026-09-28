@@ -37,10 +37,19 @@ velocity = zeros(nq,1);
 pathQ = zeros(nSensor,1);
 pathV = zeros(nSensor,1);
 sensorAcceleration = zeros(nSample,nSensor);
+rigidSensorAcceleration = zeros(nSample,nSensor);
+pathAcceleration = zeros(nSample,nSensor);
+pathInputForce = zeros(nSample,nSensor);
 meshForceSp = zeros(nSample,p.model.nPlanet);
 meshForceRp = zeros(nSample,p.model.nPlanet);
 pathWeights = zeros(nSample,nSensor,p.model.nPlanet);
 inputTorque = zeros(nSample,1);
+faultLossSunPlanet = zeros(nSample,p.model.nPlanet);
+faultLossRingPlanet = zeros(nSample,p.model.nPlanet);
+ringRigidAccelerationXY = zeros(nSample,2);
+sunSupportForceToHousingXY = zeros(nSample,2);
+ringSupportForceToHousingXY = zeros(nSample,2);
+carrierSupportForceToHousingXY = zeros(nSample,2);
 
 pathMass = p.sensor.pathEffectiveMass;
 pathOmega = 2*pi*p.sensor.pathNaturalFrequencyHz;
@@ -68,12 +77,27 @@ if isLoaded
 else
     pathA = (pathForce-pathDamping*pathV-pathStiffness*pathQ)/pathMass;
 end
+rigidSensorAcceleration(1,:) = (CaccRigid*acceleration).';
+pathAcceleration(1,:) = pathA.';
+pathInputForce(1,:) = pathForce.';
 sensorAcceleration(1,:) = (p.sensor.rigidRingContribution* ...
-    (CaccRigid*acceleration)+pathA).';
+    rigidSensorAcceleration(1,:).'+pathA).';
 meshForceSp(1,:) = contact.sunPlanet;
 meshForceRp(1,:) = contact.ringPlanet;
 pathWeights(1,:,:) = reshape(weights,1,nSensor,p.model.nPlanet);
 inputTorque(1) = operatingDetail.inputTorque;
+faultLossSunPlanet(1,:) = meta.tvms.faultStiffnessLossSunPlanet;
+faultLossRingPlanet(1,:) = meta.tvms.faultStiffnessLossRingPlanet;
+ringRigidAccelerationXY(1,:) = acceleration(p.map.ring(1:2)).';
+sunSupportForceToHousingXY(1,:) = ...
+    (p.support.sun.kxy*q(p.map.sun(1:2))+ ...
+    p.support.sun.cxy*velocity(p.map.sun(1:2))).';
+ringSupportForceToHousingXY(1,:) = ...
+    (p.support.ring.kxy*q(p.map.ring(1:2))+ ...
+    p.support.ring.cxy*velocity(p.map.ring(1:2))).';
+carrierSupportForceToHousingXY(1,:) = ...
+    (p.support.carrier.kxy*q(p.map.carrier(1:2))+ ...
+    p.support.carrier.cxy*velocity(p.map.carrier(1:2))).';
 
 beta = options.beta;
 gamma = options.gamma;
@@ -105,23 +129,59 @@ for k = 2:nSample
     pathV = pathVPredict+gamma*dt*pathANew;
     pathA = pathANew;
 
+    rigidSensorAcceleration(k,:) = (CaccRigid*acceleration).';
+    pathAcceleration(k,:) = pathA.';
+    pathInputForce(k,:) = pathForce.';
     sensorAcceleration(k,:) = (p.sensor.rigidRingContribution* ...
-        (CaccRigid*acceleration)+pathA).';
+        rigidSensorAcceleration(k,:).'+pathA).';
     meshForceSp(k,:) = contact.sunPlanet;
     meshForceRp(k,:) = contact.ringPlanet;
     pathWeights(k,:,:) = reshape(weights,1,nSensor,p.model.nPlanet);
     inputTorque(k) = operatingDetail.inputTorque;
+    faultLossSunPlanet(k,:) = meta.tvms.faultStiffnessLossSunPlanet;
+    faultLossRingPlanet(k,:) = meta.tvms.faultStiffnessLossRingPlanet;
+    ringRigidAccelerationXY(k,:) = acceleration(p.map.ring(1:2)).';
+    sunSupportForceToHousingXY(k,:) = ...
+        (p.support.sun.kxy*q(p.map.sun(1:2))+ ...
+        p.support.sun.cxy*velocity(p.map.sun(1:2))).';
+    ringSupportForceToHousingXY(k,:) = ...
+        (p.support.ring.kxy*q(p.map.ring(1:2))+ ...
+        p.support.ring.cxy*velocity(p.map.ring(1:2))).';
+    carrierSupportForceToHousingXY(k,:) = ...
+        (p.support.carrier.kxy*q(p.map.carrier(1:2))+ ...
+        p.support.carrier.cxy*velocity(p.map.carrier(1:2))).';
 end
 
 response.time = time;
 response.fs = fs;
 response.acceleration = sensorAcceleration;
+response.rigidSensorAcceleration = rigidSensorAcceleration;
+response.pathAcceleration = pathAcceleration;
+response.pathInputForce = pathInputForce;
 response.sensorAnglesDeg = sensor.locationAnglesDeg;
 response.sensorSensitiveAnglesDeg = sensor.sensitiveAnglesDeg;
 response.meshForceSunPlanet = meshForceSp;
 response.meshForceRingPlanet = meshForceRp;
 response.pathWeights = pathWeights;
+response.pathModel = struct( ...
+    'pathFloor',p.sensor.pathFloor, ...
+    'pathKappa',p.sensor.pathKappa, ...
+    'pathEffectiveMass',pathMass, ...
+    'pathNaturalFrequencyHz',p.sensor.pathNaturalFrequencyHz, ...
+    'pathZeta',p.sensor.pathZeta, ...
+    'planetSourceGain',p.sensor.planetSourceGain, ...
+    'rigidRingContribution',p.sensor.rigidRingContribution, ...
+    'status',['low-order angular-visibility path prior; not an exact ' ...
+    'ANSYS contact-to-sensor FRF']);
 response.inputTorque = inputTorque;
+response.faultStiffnessLossSunPlanet = faultLossSunPlanet;
+response.faultStiffnessLossRingPlanet = faultLossRingPlanet;
+response.faultEventTruth = pg_fault_event_truth(time, ...
+    faultLossSunPlanet+faultLossRingPlanet,p,fault);
+response.ringRigidAccelerationXY = ringRigidAccelerationXY;
+response.sunSupportForceToHousingXY = sunSupportForceToHousingXY;
+response.ringSupportForceToHousingXY = ringSupportForceToHousingXY;
+response.carrierSupportForceToHousingXY = carrierSupportForceToHousingXY;
 response.outputTorque = p.operating.outputTorque;
 response.fault = fault;
 if isLoaded
