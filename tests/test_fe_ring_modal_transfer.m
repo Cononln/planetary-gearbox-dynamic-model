@@ -18,6 +18,11 @@ p.gear.planetPhase0 = [0 2*pi/3 4*pi/3];
 thetaFe = pg_fe_ring_contact_angle(0,p,model,1:3);
 assert(max(abs(thetaFe-[0 4*pi/3 2*pi/3]))<1e-12, ...
     'Clockwise local-to-FE contact registration is inconsistent.');
+model.sensorAnglesGlobalDeg(1) = 90;
+thetaFe = pg_fe_ring_contact_angle(0,p,model,1:3);
+assert(max(abs(thetaFe-deg2rad([90 330 210])))<1e-12, ...
+    'SENSOR_0 vertical zero and P1/P2/P3 FE contact angles are inconsistent.');
+model.sensorAnglesGlobalDeg(1) = 0;
 
 psi = pg_fe_ring_input_shape([0;2*pi],model);
 assert(isequal(size(psi),[2 1]) && max(abs(psi-1))<1e-12, ...

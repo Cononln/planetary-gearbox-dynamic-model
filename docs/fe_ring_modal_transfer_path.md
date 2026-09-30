@@ -23,6 +23,33 @@
 - src/pg_apply_fe_ring_transfer.m：保留的频域对照；正式因果事件图使用逐时步实现。
 - scripts/run_causal_fe_ring_path_comparison.m：健康/太阳轮裂纹的因果路径对比入口。
 - scripts/diagnose_fe_modal_path_gain.m：接触角和测点的模态参与诊断。
+- scripts/remap_saved_fe_path_q090.py：用已保存的健康/0.90 mm 18DOF PR 力与四测点
+  模态资产重注册路径；不重新求解源动力学，旧角度路径仅作历史时域数值校验。
+
+保存结果的后处理证据脚本（均只读源记录和模态资产，不改写动力学或模态
+参数）包括：
+
+- `scripts/build_planet_modal_evidence_chain.py`：0°/90°故障事件与逐模态留一诊断；
+- `scripts/decompose_fe_q090_modal_pr_contributions.py`：按 PR 输入和模态分解
+  四测点故障增量；
+- `scripts/diagnose_planet_crack_fe_path.py`：行星轮裂纹的 SP/PR 事件与四测点
+  响应审计；
+- `scripts/export_model_relative_ring_tooth_sequence.py`：导出模型相对齿圈序列，
+  不冒充 ANSYS/CAD 实物齿号；
+- `scripts/plot_fe_path_mapping_evidence.py`、`plot_fe_path_mapping_evidence_cn.py`、
+  `plot_fe_path_threshold50_cn.py` 和 `plot_fe_pr_contact_sensor_angle_schematic_cn.py`：
+  事件角度、阈值时刻和测点映射的证据图；
+- `scripts/plot_fe_q090_modal_pr_diagnostic.py` 和
+  `scripts/plot_planet_fe_path_diagnostic.py`：模态/测点诊断图；
+- `scripts/build_reflected_pr_normal_fe_diagnostic.py` 和
+  `scripts/compare_planet_fe_normal_sensitivity.py`：反射法向的独立敏感性对照，
+  不替换正式资产；
+- `scripts/figure_qa.py`：可选的论文图版式检查适配器。缺少外部检查器时会明确
+  报告“未审计”，不会把图形生成误报为通过。
+
+这些脚本的默认输入和输出位于被 `.gitignore` 排除的 `results/`；在另一台机器
+上应通过命令行显式提供本地资产路径，并把生成目录写入新的时间戳子目录。
+脚本输出中的峰值延迟是事件窗内最大响应峰的相对时间，不是材料波首达时间。
 
 ## 模态资产
 
@@ -63,6 +90,10 @@ APDL 的 `auto_sensor_check.csv` 和完成标记用于检查导出状态；手�
 当前注册采用“源模型局部 0° 对应 `SENSOR_0` 方向”的坐标约定；
 实际行星架装配零位和转向仍需与 FE 模型/试验记录核对，不能把约定当作
 已测得的绝对相位。
+当前用户确认 `SENSOR_0` 位于齿圈上方且 1 号行星轮初始位于其正下方，
+顺时针为局部正角；因此在 `SENSOR_0` 的 FE 全局角约 90° 时，
+`phi_c=0` 的 P1/P2/P3 接触角为 90°/330°/210°。完整约定及 2 s
+重映射证据记录在 [CURRENT_STATE](CURRENT_STATE.md) 第 7 节。
 
 ## 运行示例
 
@@ -98,6 +129,14 @@ CSV 和事件指标中。
 从仓库根目录单独运行 Python 轻量自检：
 
     python scripts/run_smoke_tests.py
+
+复核保存的 0.90 mm 太阳轮裂纹路径时，可运行（下面三个输入路径需替换为本机文件）：
+
+    python scripts/remap_saved_fe_path_q090.py --source-dir <保存18DOF源MAT的目录> --asset <四测点ANSYS模态MAT> --old-csv <历史旧角因果时序CSV> --out-dir <新的结果目录>
+
+该入口不依赖特定机器的盘符；其他机器应显式给出上述路径。它输出修正角完整带符号时序、逐事件传感器指标、
+逐事件三路 PR 力增量及溯源信息。太阳轮裂纹是 SP 故障源，PR 接触角是
+三路传递载荷入射位置；不能把 active 行星轮的一个 PR 角当成全部路径源。
 
 前一项检查验证 18DOF 运动学和矩阵维度，后一项使用合成小模型检查模态
 方程、周期接触插值和零载荷响应；它们都不替代 ANSYS 资产的模态收敛性
