@@ -84,11 +84,13 @@ def panel_label(ax: plt.Axes, label: str) -> None:
 
 def save_bundle(fig: plt.Figure, stem: Path, *, multipanel: bool = False) -> None:
     stem.parent.mkdir(parents=True, exist_ok=True)
+    qa_dir = stem.parent / "qa"
+    qa_dir.mkdir(parents=True, exist_ok=True)
     if multipanel and require_matplotlib_panel_alignment is not None:
         require_matplotlib_panel_alignment(
             fig,
-            json_out=str(stem.with_suffix(".alignment.json")),
-            overlay_svg=str(stem.with_suffix(".alignment.svg")),
+            json_out=str(qa_dir / f"{stem.name}.alignment.json"),
+            overlay_svg=str(qa_dir / f"{stem.name}.alignment.svg"),
             tolerance_pt=1.5,
             gutter_tolerance_pt=1.5,
             require_panel_labels=True,
@@ -302,6 +304,9 @@ The time traces are the saved model acceleration responses.  The plotted y-axis
 is intentionally displayed as `Amplitude`; source values remain unchanged.
 Spectra use mean removal, a Hann window, and one-sided amplitude scaling.  No
 extra fault pulses, sidebands, smoothing, or frequency lines are inserted.
+
+Render-time alignment and collision QA artifacts are stored in the `qa/`
+subdirectory beside the figure files.
 
 Operating inputs in the source model are provisional engineering settings (20 N m
 input torque, 100 N m ideal carrier load and 5 um TE); they are not measured data.
