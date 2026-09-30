@@ -170,12 +170,12 @@ def plot_time(time: np.ndarray, signals: dict[str, np.ndarray], out: Path) -> No
             ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.02),
                       ncol=3, handlelength=2.0, borderaxespad=0.0)
     axes[-1].set_xlabel("Time / s")
-    fig.suptitle("Legacy 18+7 DOF system response", y=0.995, fontsize=10)
+    fig.suptitle("System vibration response", y=0.995, fontsize=10)
     fig.subplots_adjust(left=0.105, right=0.985, top=0.94, bottom=0.085)
     save_bundle(fig, out / "Fig3_old18plus7_system_response_time", multipanel=True)
 
 
-def plot_spectrum(spec: pd.DataFrame, out: Path, xmax: float = 500.0) -> None:
+def plot_spectrum(spec: pd.DataFrame, out: Path, xmax: float = 600.0) -> None:
     fig, axes = plt.subplots(3, 1, figsize=(7.2, 6.3), sharex=True,
                              gridspec_kw={"hspace": 0.22})
     for i, (case, label) in enumerate(zip(CASES, CASE_LABELS)):
@@ -198,9 +198,9 @@ def plot_spectrum(spec: pd.DataFrame, out: Path, xmax: float = 500.0) -> None:
             ax.legend(loc="lower right", bbox_to_anchor=(1.0, 1.02),
                       ncol=3, handlelength=2.0, borderaxespad=0.0)
     axes[-1].set_xlabel("Frequency / Hz")
-    fig.suptitle("Legacy 18+7 DOF response spectra", y=0.995, fontsize=10)
+    fig.suptitle("System vibration response spectra", y=0.995, fontsize=10)
     fig.subplots_adjust(left=0.105, right=0.985, top=0.94, bottom=0.085)
-    save_bundle(fig, out / "Fig3_old18plus7_system_response_spectrum_0_500Hz", multipanel=True)
+    save_bundle(fig, out / "Fig3_old18plus7_system_response_spectrum_0_600Hz", multipanel=True)
 
 
 def _downsample(x: np.ndarray, y: np.ndarray, max_points: int = 6000) -> tuple[np.ndarray, np.ndarray]:
@@ -216,38 +216,51 @@ def plot_waterfalls(time: np.ndarray, signals: dict[str, np.ndarray], spec: pd.D
         # Time waterfall
         fig = plt.figure(figsize=(7.2, 4.8), facecolor="white")
         ax = fig.add_subplot(111, projection="3d")
+        for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+            axis.pane.fill = False
+            axis.pane.set_edgecolor("#D0D0D0")
         for case, sev, colour in zip(CASES, severity, CASE_COLORS):
             x, y = _downsample(time, signals[f"{case}_sensor_{sensor}deg_ms2"])
             ax.plot(x, np.full_like(x, sev), y, color=colour, lw=0.55)
         ax.set_xlabel("Time / s", labelpad=6)
-        ax.set_ylabel("Sun crack / %", labelpad=6)
-        ax.set_zlabel("Amplitude", labelpad=6)
+        ax.set_ylabel("Sun crack / %", labelpad=12)
+        # Matplotlib's 3-D z-label can be clipped by bbox_inches='tight'.
+        # Put the editable label in figure coordinates so it remains visible
+        # in PNG, PDF and SVG exports.
+        ax.set_zlabel("")
         ax.set_yticks(severity)
         ax.set_yticklabels(["0", "25", "50"])
         ax.view_init(elev=18, azim=-68)
-        ax.set_title(f"Legacy 18+7 DOF time response — sensor {sensor_label}", pad=10)
-        fig.subplots_adjust(left=0.01, right=0.96, bottom=0.03, top=0.90)
+        ax.set_title(f"Time response — sensor {sensor_label}", pad=10)
+        fig.subplots_adjust(left=0.03, right=0.86, bottom=0.07, top=0.88)
+        fig.text(0.88, 0.50, "Amplitude", rotation=90, rotation_mode="anchor",
+                 ha="center", va="center", fontsize=8.5)
         save_bundle(fig, out / f"Fig3_old18plus7_time_waterfall_sensor_{sensor}deg")
 
-        # Spectrum waterfall (0–500 Hz)
+        # Spectrum waterfall (0–600 Hz; includes 1fm, 2fm and 3fm)
         fig = plt.figure(figsize=(7.2, 4.8), facecolor="white")
         ax = fig.add_subplot(111, projection="3d")
+        for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+            axis.pane.fill = False
+            axis.pane.set_edgecolor("#D0D0D0")
         for case, sev, colour in zip(CASES, severity, CASE_COLORS):
-            m = (spec.case == case) & (spec.sensor_deg == int(sensor)) & (spec.frequency_Hz <= 500.0)
+            m = (spec.case == case) & (spec.sensor_deg == int(sensor)) & (spec.frequency_Hz <= 600.0)
             ax.plot(spec.loc[m, "frequency_Hz"], np.full(m.sum(), sev),
                     spec.loc[m, "amplitude"], color=colour, lw=0.65)
         for k in (1, 2, 3):
             ax.plot([k * FM_HZ, k * FM_HZ], [0, 50], [0, 0],
                     color="#B7B7B7", lw=0.45, ls=(0, (2, 2)))
         ax.set_xlabel("Frequency / Hz", labelpad=6)
-        ax.set_ylabel("Sun crack / %", labelpad=6)
-        ax.set_zlabel("Amplitude", labelpad=6)
+        ax.set_ylabel("Sun crack / %", labelpad=12)
+        ax.set_zlabel("")
         ax.set_yticks(severity)
         ax.set_yticklabels(["0", "25", "50"])
-        ax.set_xlim(0, 500)
+        ax.set_xlim(0, 600)
         ax.view_init(elev=18, azim=-68)
-        ax.set_title(f"Legacy 18+7 DOF spectrum — sensor {sensor_label}", pad=10)
-        fig.subplots_adjust(left=0.01, right=0.96, bottom=0.03, top=0.90)
+        ax.set_title(f"Response spectrum — sensor {sensor_label}", pad=10)
+        fig.subplots_adjust(left=0.03, right=0.86, bottom=0.07, top=0.88)
+        fig.text(0.88, 0.50, "Amplitude", rotation=90, rotation_mode="anchor",
+                 ha="center", va="center", fontsize=8.5)
         save_bundle(fig, out / f"Fig3_old18plus7_spectrum_waterfall_sensor_{sensor}deg")
 
 
@@ -269,7 +282,7 @@ def write_metrics(time: np.ndarray, signals: dict[str, np.ndarray], spec: pd.Dat
             })
     pd.DataFrame(rows).to_csv(out / "system_response_metrics.csv", index=False)
     spec.to_csv(out / "system_response_spectra_full.csv", index=False)
-    spec[spec.frequency_Hz <= 500.0].to_csv(out / "system_response_spectra_0_500Hz.csv", index=False)
+    spec[spec.frequency_Hz <= 600.0].to_csv(out / "system_response_spectra_0_600Hz.csv", index=False)
 
 
 def write_readme(source: Path, out: Path, time: np.ndarray) -> None:
@@ -338,7 +351,7 @@ def plot_path_truth(path_csv: Path, out: Path) -> None:
     handles, labels = axes[0, 0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 0.955),
                ncol=3, handlelength=2.0, frameon=False)
-    fig.suptitle("Legacy 18+7 path-truth amplitude and phase", y=0.995, fontsize=10)
+    fig.suptitle("Transfer-path amplitude and phase response", y=0.995, fontsize=10)
     fig.subplots_adjust(left=0.09, right=0.985, top=0.86, bottom=0.12)
     save_bundle(fig, out / "Fig3_old18plus7_path_amplitude_phase", multipanel=True)
 
