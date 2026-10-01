@@ -1,5 +1,6 @@
 # Compatible dependency ranges, not an exact reproduction lockfile.
 numpy>=1.26
+h5py>=3.11
 scipy>=1.11
 matplotlib>=3.8
 pandas>=2.0

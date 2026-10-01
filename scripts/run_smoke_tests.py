@@ -6,6 +6,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = (
+    "test_fe_asset_contract.py",
     "test_pearson_scope.py",
     "test_signed_waveform.py",
     "test_tidal_waveform.py",
